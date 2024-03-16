@@ -3,6 +3,9 @@ ver 0.15
 Test plugin working on krita, porting from Imagetracer.js 1.2.6  
 https://github.com/jankovicsandras/imagetracerjs
 
+Krita
+https://krita.org/en/
+
 # how to install
 To use plugin,Please Install this to  Krita 5.2.2
 
@@ -12,7 +15,7 @@ Please Install this into pykrita directry too
 
 Not need Node.js.    
 
-Feature: 
+# Features
 * Trace as filled color area and Line Art 
 * Tracing Whole image or Rectangle selection area
 * Recommend :An image smaller than 256ｘ256 pixels  
