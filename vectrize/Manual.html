@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Vectrize plug-in</title>
+<style type="text/css">
+<!--
+	.body{padding:10px;}
+	p{padding-left:15px;margin-left:15px;}
+	th{background-color:#eeeeee;}
+	th,td{padding:8px;}
+	.na{color:#bbb;}
+	.ud{color:#ff3300;}
+	.c{text-align:center}
+-->
+</style>
+</head>
+<body class="body">
+<!-- Krita Vectrize by L.Sumireneko.M -->
+<h2>About:Vectrize plug-in</h2>
+<h4>v0.15</h4>
+Powerd by Imagetracer.js v1.2.6
+<h3>About</h3>
+<p>
+	Note:Work in progress,and It is alpha version.<br>
+	<br>
+	This plugin vectrize whole image or select area.<br>
+	It generate multiple color filled SVG pathes,and created as VectorLayer.<br>
+	<br>
+	Recommend image size is smaller than 64px * 64px <br>
+	<br>
+	This plug-in also need addict Library(Python)<br>
+	<a href="https://github.com/mewwts/addict">https://github.com/mewwts/addict</a><br>
+	Download it and into Pykrita folder(The directory of krita plug-ins)<br>
+	<br>
+	This plug-in is python port of Imagetracer.js v1.2.6<br>
+	<a href="https://github.com/jankovicsandras/imagetracerjs">https://github.com/jankovicsandras/imagetracerjs</a><br>
+</p>
+<h3>User Tips</h3>
+<p> 
+	<h4>The result nothing</h4>
+	Assumed cause...
+	<ul>
+	<li>numberofcolors = 0
+	<li>colorquantcycles = 0,it must be 1-3 value
+	<li>Set line art mode, but strokewith is 0
+	<li>Scaling is larger than canvas display area(The vector objects can selectable)
+	</ul>
+	
+	<h4>Too small result</h4> 
+	Default tracing scale is 1 ( pixel: export vector size = 1:1),Both look similar<br>
+	So,set scale parameter to 10 if you can see the difference of vector and pixel.<br>
+	<br>
+	<h4>Get smooth curve from pixel</h4>
+	<ul>
+	<li>Error threshold for Line (ltres) value to smaller (0.05)</li>
+	<li>Error threshold Q-Spline (qtres) value to larger (1.0)</li>
+	</ul>
+	<h4>I want get grayscale result</h4>
+	<ul>
+	<li>Use colors (numberofcolors) parameter to less than 8 (1-7)</li>
+	</ul>
+	<h4>I want line art only,not want fill colors</h4>
+	<ul>
+	<li>Check Line art</li>
+	<li>Set Line Width  to greater than 0</li>
+	</ul>
+	
+</p>
+<h3>Options</h3>
+<p>
+In this This versionion,some option is omitted,becaue the platform environment reasen that the feature not support python,or HTML only. et cetera.<br>
+But It remains in the data, just disabled for compatibility.<br>
+Also,bool value in Python,first letter is uppercase True,False<br>
+<br>
+These tables's original data are reference from Imagetracerjs document <a href="https://github.com/jankovicsandras/imagetracerjs">https://github.com/jankovicsandras/imagetracerjs</a><br>
+<h4>Tracing</h4>
+	<table border="1" cellpadding="2" cellspacing="0">
+		<tr><th>Parameter (GUI)</th><th>Option name</th><th>Default value<br>(Original / This)</th><th>Meaning</th></tr>
+		<tr class="na"><td>N/A</td><td>corsenabled</td><td class="c">false / False</td><td>Enable or disable CORS Image loading</td></tr>
+		<tr><td>Error threshold for Line</td><td>ltres</td><td class="c">1 / 0.05</td><td>Error threshold for straight lines.</td></tr>
+		<tr><td>Error threshold Q-Spline</td><td>qtres</td><td class="c">1 / 1.0</td><td>Error threshold for quadratic splines.</td></tr>
+		<tr><td>Path omit shorter than</td><td>pathomit</td><td class="c">8 / 3</td><td>Edge node paths shorter than this will be discarded for noise reduction.</td></tr>
+		<tr><td>RightAngle Enhance</td><td>rightangleenhance</td><td class="c">true / True</td><td>Enhance right angle corners.</td></tr>
+	</table>
+<h4>Color quantization</h4>
+	<table border="1" cellpadding="2" cellspacing="0">
+		<tr><th>Parameter (GUI)</th><th>Option name</th><th>Default value<br>(Original / This)</th><th>Meaning</th></tr>
+		<tr><td>Color Sampling or Palette</td><td>colorsampling </td><td class="c">2 / 0</td><td>0: disabled, generating a palette;<br>1: random sampling; <br>2: deterministic sampling</td></tr>
+		<tr><td>Use colors</td><td>numberofcolors </td><td class="c">16 </td><td>Number of colors to use on palette if pal object is not defined.</td></tr>
+		<tr><td>Min Color Ratio</td><td>mincolorratio </td><td class="c">0 </td><td>Color quantization will randomize a color if fewer pixels than (total pixels*mincolorratio) has it.</td></tr>
+		<tr><td>Color quantize Cycles</td><td>colorquantcycles </td><td class="c">1 </td><td>Color quantization will be repeated this many times.</td></tr>
+	</table>
+
+<h4>Layering</h4>
+	<table border="1" cellpadding="2" cellspacing="0">
+		<tr><th>Parameter (GUI)</th><th>Option name</th><th>Default value<br>(Original / This)</th><th>Meaning</th></tr>
+		<tr><td>Layering Method</td><td>layering</td><td class="c">0</td><td>0: sequential ; <br>1: parallel (Old)</td></tr>
+	</table>
+
+<h4>SVG rendering</h4>
+	<table border="1" cellpadding="2" cellspacing="0">
+		<tr><th>Parameter (GUI)</th><th>Option name</th><th>Default value<br>(Original / This)</th><th>Meaning</th></tr>
+		<tr class="ud"><td>Line Art Mode </td><td>lineart </td><td class="c"> --- / False </td><td>Appended on this version (Krita plug in)</td></tr>
+		<tr><td>Stroke width</td><td>strokewidth </td><td class="c">1 / 0</td><td>SVG stroke-width</td></tr>
+		<tr><td>Line remove filter</td><td>linefilter </td><td class="c">false / True </td><td>Enable or disable line filter for noise reduction.</td></tr>
+		<tr><td>Scale</td><td>scale </td><td class="c">1 </td><td>Every coordinate will be multiplied with this, to scale the SVG.</td></tr>
+		<tr><td>Round N decimal places</td><td>roundcoords </td><td class="c">1 </td><td>Rounding coordinates to a given decimal place.<br>1 means rounded to 1 decimal place like 7.3 ; 3 means rounded to 3 places, like 7.356
+		<tr class="ud"><td>-Internal-</td><td>viewbox </td><td class="c">false / True </td><td>Enable or disable SVG viewBox.</td></tr>
+		<tr class="ud"><td>-Internal-</td><td>desc </td><td class="c">false / False</td><td>Enable or disable SVG descriptions.</td></tr>
+	</table>
+
+
+<h4>Blur preprocessing</h4>
+	<table border="1" cellpadding="2" cellspacing="0">
+		<tr><th>Parameter (GUI)</th><th>Option name</th><th>Default value<br>(Original / This)</th><th>Meaning</th></tr>
+		<tr><td>Blur Radius</td><td>blurradius </td><td class="c">0 </td><td>Set this to 1..5 for selective Gaussian blur preprocessing.</td></tr>
+		<tr><td>Blur Delta</td><td>blurdelta </td><td class="c">20 </td><td>RGBA delta threshold for selective Gaussian blur preprocessing.</td></tr>
+</table>
+
+<h4>Debug</h4>
+	<table border="1" cellpadding="2" cellspacing="0">
+		<tr><th>Parameter (GUI)</th><th>Option name</th><th>Default value<br>(Original / This)</th><th>Meaning</th></tr>
+		<tr class="na"><td>N/A</td><td>layercontainerid </td><td class="c">No default value </td><td>Edge node layers can be visualized if a container div's id is defined.</td></tr>
+		<tr class="ud"><td>-Internal-</td><td>lcpr </td><td class="c">0 </td><td>Draw gizmo for Debug:<br>Straight line control point radius, if this is greater than zero, small circles will be drawn in the SVG. Do not use this for big/complex images.</td></tr>
+		<tr class="ud"><td>-Internal-</td><td>qcpr </td><td class="c">0 </td><td>Draw gizmo for Debug:<brQuadratic spline control point radius, if this is greater than zero, small circles and lines will be drawn in the SVG. Do not use this for big/complex images.</td></tr>
+		<tr><td>Message box</td><td colspan="3"> PyQt message dialog for debug</td></tr>
+
+</table>
+
+
+
+<h4>Initial palette</h4>
+	<table border="1" cellpadding="2" cellspacing="0">
+		<tr><th>Parameter (GUI)</th><th>Option name</th><th>Default value<br>(Original / This)</th><th>Meaning</th></tr>
+		<tr class="na"><td>N/A </td><td>pal </td><td class="c">No default value </td><td>Custom palette, an array of color objects: [ {r:0,g:0,b:0,a:255}, ... ]</td></tr>
+	</table>
+
+
+</p>
+</body>
+</html>
