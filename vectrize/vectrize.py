@@ -2,7 +2,7 @@ from krita import *
 from PyQt5.QtWidgets import *
 from PyQt5.Qt import *
 from PyQt5.QtGui import *
-import math,random,os,copy,time,sys
+import math,random,os,copy,time,sys,array
 from math import floor,ceil,sqrt
 from random import randint
 from io import BytesIO
@@ -11,7 +11,7 @@ from addict import Dict
 
 '''
  ===============================================
- Vectrize plugin v0.15 for Krita 5.2.x 
+ Vectrize plugin v0.25 for Krita 5.2.x 
  ===============================================
  Copyright (C) 2024 L.Sumireneko.M
  This program is free software: you can redistribute it and/or modify it under the 
@@ -241,7 +241,7 @@ class ImageToSVGConverter():
         x = 0;y = 0;w = currentDoc.width()+1;h = currentDoc.height()+1;qbin=None;img=None
         dx,dy,dw,dh = 0,0,1,1
         self.select_mode['is'] = False
-        print("Image Size:",x,y,w,h)
+        # print("Image Size:",x,y,w,h)
         
         # https://scripting.krita.org/lessons/image-data
         # https://krita-artists.org/t/pixel-perfect-line-setting-for-pixel-art-brushes/42629/5
@@ -257,7 +257,7 @@ class ImageToSVGConverter():
                 if by < 0:by = 0
                 if bx + bw >= w:bw = w-bx
                 if by + bh >= h:bh = h-by
-                print("Selection:",bx,by,bw,bh)
+                # print("Selection:",bx,by,bw,bh)
                 img = bytearray(target_krita_node.projectionPixelData(bx,by,bw,bh))
                 qbin = QImage(img, bw, bh, QImage.Format_RGBA8888).rgbSwapped()
                 dx,dy,dw,dh = bx,by,bw,bh;
@@ -275,20 +275,20 @@ class ImageToSVGConverter():
             # rotate 90 & yy in range(w,0,-1) for avoid bug
             qbin = qbin.transformed(QTransform().rotate(-90))
             #print(qbin.depth())
-            rgbappend = rgba.append
+            rgba_extend = rgba.extend
             for xx in range(0,dh):
                 for yy in range(dw-1,0,-1):
                     if xx == dh:continue
                     if yy == dw:continue
                     pixc = qbin.pixelColor(xx, yy)
-                    r = math.floor(pixc.red())
-                    g = math.floor(pixc.green())
-                    b = math.floor(pixc.blue())
-                    a = math.floor(pixc.alpha())
+                    r = floor(pixc.red())
+                    g = floor(pixc.green())
+                    b = floor(pixc.blue())
+                    a = 255 # floor(pixc.alpha())
                     #print(r,g,b,a)
-                    rgbappend([r,g,b,a])
+                    rgba_extend([r,g,b,a])
             #print(rgba)
-        rgba = sum(rgba, [])
+        rgba = array.array('i',rgba);
         return rgba,dw-1,dh-1
 
 
@@ -618,10 +618,10 @@ class ImageToSVGConverter():
             # Rest is random
             for rcnt in range(0,rndnum):
                 palette[pdx]=Dict({
-                    'r': math.floor(random.randint(0, 255)),
-                    'g': math.floor(random.randint(0, 255)),
-                    'b': math.floor(random.randint(0, 255)),
-                    'a': math.floor(random.randint(0, 255))
+                    'r': floor(random.randint(0, 255)),
+                    'g': floor(random.randint(0, 255)),
+                    'b': floor(random.randint(0, 255)),
+                    'a': floor(random.randint(0, 255))
                 })
                 pdx+=1
         # End of numberofcolors check
@@ -741,7 +741,7 @@ class ImageToSVGConverter():
                 if (arr_in == 4) or (arr_in == 11):# Other values are not valid
                     # Init
                     py = j;px = i;
-                    paths[pacnt] = Dict({'points' : Dict(), 'boundingbox' : [px,py,px,py],'holechildren':list() })
+                    paths[pacnt] = Dict({'points' : Dict(), 'boundingbox' : [px,py,px,py],'holechildren':[] })
                     pathfinished = False
                     pcnt = 0
                     holepath = True if arr_in == 11 else False
@@ -749,13 +749,15 @@ class ImageToSVGConverter():
                     # Path points loop
                     while not pathfinished:
                         # New path point
-                        #if len(paths[pacnt].points) - 1 < pcnt: pathfinished = False
-                        paths[pacnt].points[pcnt] = Dict({ 'x' : px - 1, 'y' : py - 1, 't': arr[py][px] })
+                        pxbk = px - 1;
+                        pybk = py - 1;
+                        paths[pacnt].points[pcnt] = Dict({ 'x' : pxbk, 'y' : pybk, 't': arr[py][px] })
+                        
                         # Bounding box
-                        if (px - 1) < paths[pacnt].boundingbox[0]: paths[pacnt].boundingbox[0] = px - 1
-                        if (px - 1) > paths[pacnt].boundingbox[2]: paths[pacnt].boundingbox[2] = px - 1
-                        if (py - 1) < paths[pacnt].boundingbox[1]: paths[pacnt].boundingbox[1] = py - 1
-                        if (py - 1) > paths[pacnt].boundingbox[3]: paths[pacnt].boundingbox[3] = py - 1
+                        if pxbk < paths[pacnt].boundingbox[0]: paths[pacnt].boundingbox[0] = pxbk
+                        if pxbk > paths[pacnt].boundingbox[2]: paths[pacnt].boundingbox[2] = pxbk
+                        if pybk < paths[pacnt].boundingbox[1]: paths[pacnt].boundingbox[1] = pybk
+                        if pybk > paths[pacnt].boundingbox[3]: paths[pacnt].boundingbox[3] = pybk
                         # Next: look up the replacement, direction and coordinate changes = clear this cell, turn if required, walk forward
                         lookuprow = self.pathscan_combined_lookup[arr[py][px]][dir]
                         # This is updated arr[py(j)][px(i)]
@@ -777,8 +779,8 @@ class ImageToSVGConverter():
                                     parentbbox = [-1,-1,w+1,h+1]
                                     parentcnt = 0
                                     for parentcnt in range(0,pacnt):
-                                        prc = list(paths[parentcnt].boundingbox)
-                                        pc = list(paths[pacnt].boundingbox)
+                                        prc = paths[parentcnt].boundingbox
+                                        pc = paths[pacnt].boundingbox
                                         pts0 = paths[pacnt].points[0] # Dict()
                                         pts = paths[parentcnt].points # Dict()
                                         if (not paths[parentcnt].isholepath) and self.boundingboxincludes(prc, pc) and self.boundingboxincludes(parentbbox, prc) and self.pointinpoly(pts0, pts):
@@ -1373,7 +1375,7 @@ class Vectrize(DockWidget):
     def __init__(self):
         global opt,opt_keys,pmenu,lmenu
         super().__init__()
-        self.setWindowTitle("Vectrize v0.15")
+        self.setWindowTitle("Vectrize v0.25")
         self.opt=Dict()
         gen = ImageToSVGConverter()
         opt_keys = list(gen.optionpresets['default'].keys())
@@ -1598,8 +1600,8 @@ class Vectrize(DockWidget):
             return
             
         w = currentDoc.width();h = currentDoc.height();
-        if w > 64 or h > 64:
-            ans = message_yn(f'Image size({w}px*{h}px) is too large,\n Long time left if convert whole image.\nDo you want to cancel? ')
+        if w > 756 or h > 756:
+            ans = message_yn(f'Image size({w}px*{h}px) is too large,\n Long time (60sec or more) left if convert whole image probably.\n Do you want to cancel? ')
             if ans == False:return
         st = time.time()
         gen = ImageToSVGConverter()
