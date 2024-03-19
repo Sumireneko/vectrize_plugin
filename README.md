@@ -23,9 +23,10 @@ Not need Node.js.
 Thanks to each libraries authors!  
 
 # Update History
-v0.25 - 2024/03/19
+v0.25 - 2024/03/19  
 Fixed the process of converting from tuple to list.  
 Data loading speed is approximately 13 times faster.  
   
-v0.15 initial release  
+v0.15  
+initial release  
 
