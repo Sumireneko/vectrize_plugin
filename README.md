@@ -18,7 +18,7 @@ Not need Node.js.
 # Features
 * Trace as filled color area and Line Art 
 * Tracing Whole image or Rectangle selection area
-* Recommend :An image smaller than 512ｘ512 pixels  
+* Recommend image size: smaller than 512ｘ512 pixels  
   
 Thanks to each libraries authors!  
 
