@@ -1,5 +1,5 @@
 # vectrize_plugin
-ver 0.25  
+ver 0.3  
 Test plugin working on krita, porting from Imagetracer.js 1.2.6  
 https://github.com/jankovicsandras/imagetracerjs
 
@@ -18,11 +18,14 @@ Not need Node.js.
 # Features
 * Trace as filled color area and Line Art 
 * Tracing Whole image or Rectangle selection area
-* Recommend image size: smaller than 512ｘ512 pixels  
+* Recommend image size: smaller than 756ｘ756 pixels  
   
 Thanks to each libraries authors!  
 
 # Update History
+v0.3 - 2024/03/23  
+Improved to process speed x2
+
 v0.25 - 2024/03/19  
 Fixed the process of converting from tuple to list.  
 Data loading speed is approximately 13 times faster.  
