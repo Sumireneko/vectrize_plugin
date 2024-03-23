@@ -1,9 +1,9 @@
-# vectrize_plugin
+# vectrize_plugin for Krita  
 ver 0.3  
-Test plugin working on krita, porting from Imagetracer.js 1.2.6  
+Test plugin working on Krita, porting from Imagetracer.js 1.2.6  
 https://github.com/jankovicsandras/imagetracerjs
 
-Krita
+for Krita 5.2.2 later  
 https://krita.org/en/
 
 # how to install
