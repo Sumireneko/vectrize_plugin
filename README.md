@@ -20,7 +20,7 @@ Thanks to each libraries and application authors!
 
 # Features
 * Trace as filled color area and Line Art 
-* Tracing Whole image or Rectangle selection area
+* Tracing Whole image or Selected area(Rectangle)
 * Recommend image size: smaller than 756ｘ756 pixels  
   
 
