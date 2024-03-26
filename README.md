@@ -1,5 +1,5 @@
 # vectrize_plugin for Krita  
-ver 0.3  
+ver 0.31  
 Test plugin working on Krita, porting from Imagetracer.js 1.2.6  
 https://github.com/jankovicsandras/imagetracerjs
 
@@ -23,6 +23,12 @@ Not need Node.js.
 Thanks to each libraries authors!  
 
 # Update History
+v0.31 - 2024/03/26   
+Improvements and bug fixes  
+If quantization flag to set 0,change to 1(default).  
+Updated Manual.html 
+(Regarding the relationship between image size and appropriate error threshold.)   
+  
 v0.3 - 2024/03/23  
 Improved to process speed x2
 
