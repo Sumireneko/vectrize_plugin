@@ -1,21 +1,20 @@
-# vectrize_plugin for Krita  
+# Vectrize plugin for Krita  
 ver 0.31  
 This is an experimental plugin works on Krita,  
 It can that tracing as  svg path on selected area or full image.  
+Not need Node.js and Runtime etc.  
 
 Python Porting from Imagetracer.js 1.2.6  
-https://github.com/jankovicsandras/imagetracerjs
+https://github.com/jankovicsandras/imagetracerjs  
 
-for Krita v5.2.2 later  
+# How to install
+To use plugin,Please Install this to  Krita v5.2.2 later  
 https://krita.org/en/
 
-# how to install
-To use plugin,Please Install this to  Krita v5.2.2
-
-Important:this plug-in need addict v2.4.0 library  
-https://github.com/mewwts/addict
+Important!    
+This plug-in need addict v2.4.0 library  
+https://github.com/mewwts/addict  
 Please Install this into pykrita directry too
-Not need Node.js.    
 
 Thanks to each libraries and application authors!  
 
@@ -24,7 +23,6 @@ Thanks to each libraries and application authors!
 * Tracing Whole image or Rectangle selection area
 * Recommend image size: smaller than 756ｘ756 pixels  
   
-
 
 # Update History
 v0.31 - 2024/03/26   
