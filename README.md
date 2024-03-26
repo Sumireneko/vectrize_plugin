@@ -1,6 +1,8 @@
 # vectrize_plugin for Krita  
 ver 0.31  
-Test plugin working on Krita, porting from Imagetracer.js 1.2.6  
+This is an experimental plugin works on Krita,
+It can that tracing as  svg path on selected area or full image.
+porting from Imagetracer.js 1.2.6  
 https://github.com/jankovicsandras/imagetracerjs
 
 for Krita 5.2.2 later  
