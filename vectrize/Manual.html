@@ -17,7 +17,7 @@
 <body class="body">
 <!-- Krita Vectrize by L.Sumireneko.M -->
 <h2>About:Vectrize plug-in</h2>
-<h4>v0.3</h4>
+<h4>v0.31</h4>
 Powerd by Imagetracer.js v1.2.6
 <h3>About</h3>
 <p>
@@ -29,9 +29,9 @@ Powerd by Imagetracer.js v1.2.6
 	Recommend image size is smaller than 756px * 756px <br>
 	But,it can also partial vectorize just a selected area in a large size image even.<br>
 	<br>
-	This plug-in also need addict Library(Python)<br>
+	This plug-in also need addict v2.4.0 Library(Python)<br>
 	<a href="https://github.com/mewwts/addict">https://github.com/mewwts/addict</a><br>
-	Download it and into Pykrita folder(The directory of krita plug-ins)<br>
+	Download it and install into Pykrita folder(Move to The directory of krita plug-ins)<br>
 	<br>
 	This plug-in is python port based on Imagetracer.js v1.2.6<br>
 	Thank you so much to wonderful library and the developers<br>
@@ -43,21 +43,31 @@ Powerd by Imagetracer.js v1.2.6
 	Assumed cause...
 	<ul>
 	<li>UseColors is 0 or 1 almost nothing appar.
-	<li>If UseColors value is 1 - 7, it work Grayscale mode.
-	<li>The setting of colorquantcycles = 0,it should be 1-3 value
+	<li>If UseColors value is 1 - 7, it working as Grayscale mode.
+	<li>The setting of colorquantcycles = 0,it should be 1-3 value (v0.31 fixed)
 	<li>If In the  Line art mode, and strokewith value were 0,increase the value.
 	<li>It possible that the pathes has generated on the out of canvas display area. (The vector objects can selectable)
 	</ul>
 
-	<h4>What factors relate to better for quality?</h4> 
+	<h4>What factors relate to better for quality?</h4>
+	<h4>For Small image (12px - 100px)</h4> 
 	<ul>
-	<li>Error threshold for Line (ltres) value to smaller (0.05)</li>
-	<li>Error threshold Q-Spline (qtres) value to larger (1.0-3.0)</li>
-	<li>Uncheck Right Angle Enhance (This is workaround to the case that should be an acute angle becomes a curve)</li>
-	<li>Use colors (numberofcolors) to 16 - 64 </li>
-	<li>Use Deterministic sampling(Good color reproduction)</li>
+	<li>Error threshold for Line (ltres) value to smaller (0.05 - 1.0)</li>
+	<li>Error threshold Q-Spline (qtres) value to a bit larger (1.0 - 3.0)</li>
+	<li>Use colors (numberofcolors) to 8 - 32 </li>
+	<li>Use sampling mode as Use Deterministic sampling(Good color reproduction)</li>
 	<li>Use Path filter(Suppressing unnecessary path objects generate)</li>
 	<li>Path omit 0 - 3</li>
+	</ul>
+	<h4>For Large image (300px - 1024px)</h4> 
+	<ul>
+	<li>Error threshold for Line (ltres) value to lager (1.0 - 5.0)</li>
+	<li>Error threshold Q-Spline (qtres) value to larger (1.0 - 8.0)</li>
+	<li>Uncheck Right Angle Enhance (This is workaround to the case that should be an acute angle becomes a curve)</li>
+	<li>Use colors (numberofcolors) to 8 - 64 </li>
+	<li>Use sampling mode as a create palette(for less color)</li>
+	<li>Use Path filter(Suppressing unnecessary path objects generate)</li>
+	<li>Path omit 0 - 8</li>
 	</ul>
 
 	<h4>What factors relate to better for speed?</h4> 
@@ -74,14 +84,19 @@ Powerd by Imagetracer.js v1.2.6
 
 	<h4>What is better setting for vectrize?</h4> 
 	<ul>
-	<li>Error threshold for Line (ltres) value to smaller (0.05)</li>
-	<li>Error threshold Q-Spline (qtres) value to larger (1.0-3.0)</li>
+	<li>Plese specify an appropriate error threshold for the image size.</li>
 	<li>Uncheck Right Angle Enhance</li>
-	<li>Use colors (numberofcolors) to 16 - 64 </li>
+	<li>Use colors (numberofcolors) to small 8 - 16</li>
 	<li>Use Deterministic sampling</li>
 	<li>colorquantcycles = 1</li>
 	<li>Image size less than 756 x 756 px</li>
 	</ul>
+	<h4>The shape is not completely traced or missing parthaly.</h4>
+	<ul>
+	<li>For tracing a large size image,Increase 'Error threshold for Line and/or Q-Spline' values.</li>
+	</ul>
+	
+	
 	<h4>Too small result</h4> 
 	<ul>
 	<li>Default tracing scale is 1 ( pixel: export vector size = 1:1),Both look similar<br>
