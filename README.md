@@ -1,12 +1,13 @@
 # Vectrize plugin for Krita  
-ver 0.40 
+ver 0.40   
 This is an experimental plugin works on Krita,  
 It can that tracing as  svg path on selected area or full image.  
 Not need Node.js and Runtime etc.  
 
-At Lasso draw mode(v0.35 later),Draw shapes with free outlines and fills from Selection area.  
+At Lasso draw mode(v0.35 later),Create a shape with freeform from Selection area.  
 It can change the stroke and fill colors more easily than the Krita default method.  
-
+(Fillcolor as Forground Color and Bordercolor as Background color )  
+  
 Python Porting from Imagetracer.js 1.2.6  
 https://github.com/jankovicsandras/imagetracerjs  
 
