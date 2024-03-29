@@ -11,7 +11,7 @@ from addict import Dict
 
 '''
  ===============================================
- Vectrize plugin v0.31 for Krita 5.2.2 later
+ Vectrize plugin v0.40 for Krita 5.2.2 later
  ===============================================
  Copyright (C) 2024 L.Sumireneko.M
  This program is free software: you can redistribute it and/or modify it under the 
@@ -227,17 +227,40 @@ class ImageToSVGConverter():
         self.split_point_ex = {'is':False,'p':Dict(),'l':0,'q':0,'sp':0,'en':0}
         self.sep = os.sep
         self.debug_all_layer=''
+        self.free_form_selection = False
+        self.fgc_rgb = None
+        self.bgc_rgb = None
+        self.ignore_white = False
+        self.lasso_draw_mode = False
+        self.open_path_mode = False
         self.select_mode={'is':False,'x':0,'y':0}
 
     def krita_load_node(self):
-        currentDoc = Krita.instance().activeDocument()
+        krita_instance = Krita.instance()
+        currentDoc = krita_instance.activeDocument()
+        currentView = krita_instance.activeWindow().activeView()
+        
         target_krita_node = currentDoc.activeNode()
         target_krita_node.setOpacity(255) 
         rgba = []
+        
+        if self.lasso_draw_mode:
+            fg = self.fgcolor = currentView.foregroundColor()#.toQString()
+            bg = self.bgcolor = currentView.backgroundColor()#.toQString()
+            fgc = fg.components() # fgc[n] n = 0,1,2,3 : b g r a ,-> 2 1 0 3 = r,g,b,a
+            bgc = bg.components()
+            fgcd = self.fgc_rgb = Dict({'r' : floor(fgc[2] * 255.0),'g' : floor(fgc[1] * 255.0),'b' : floor(fgc[0] * 255.0),'a' : floor(fgc[3] * 255.0) })
+            bgcd = self.bgc_rgb = Dict({'r' : floor(bgc[2] * 255.0),'g' : floor(bgc[1] * 255.0),'b' : floor(bgc[0] * 255.0),'a' : floor(bgc[3] * 255.0) })
+            #message(f'''Foreground Color : R{fgcd['r']} G {fgcd['g']} B{fgcd['b']} A{fgcd['a']} ''')
+            #message(f'''Background Color : R{bgcd['r']} G {bgcd['g']} B{bgcd['b']} A{bgcd['a']} ''')
+        
         # Image size and Selection area
-        x=y=0;w = currentDoc.width()+1;h = currentDoc.height()+1;qbin=None;img=None
+        x=y=0;w = currentDoc.width()+1;h = currentDoc.height()+1;
+        qbin=None;mbin=mimg=img=None;
         dx,dy,dw,dh = 0,0,1,1
+        
         self.select_mode['is'] = False
+        self.free_form_selection = False
         # print("Image Size:",x,y,w,h)
         
         # https://scripting.krita.org/lessons/image-data
@@ -245,18 +268,42 @@ class ImageToSVGConverter():
         # https://krita-artists.org/t/python-how-to-apply-blur-to-selected-part-of-layer-only/48884/
         if target_krita_node.colorModel() == 'RGBA'  and target_krita_node.type() == 'paintlayer':
             
-            
             if currentDoc.selection() is not None: 
                 # If selection exist
                 b = currentDoc.selection()
-                bx, by, bw, bh = b.x(), b.y(), b.width()+1, b.height()+1
+                bx, by, bw, bh = b.x(), b.y(), b.width(), b.height()
+                
+                # Clopped by canvas
                 if bx < 0:bx = 0
                 if by < 0:by = 0
                 if bx + bw >= w:bw = w-bx
                 if by + bh >= h:bh = h-by
                 # print("Selection:",bx,by,bw,bh)
-                img = target_krita_node.projectionPixelData(bx,by,bw,bh)#bytearray()
-                qbin = QImage(img, bw, bh, QImage.Format_RGBA8888).rgbSwapped()
+                
+                # Get selection maskdata (B/W pixel data)
+                mimg = b.pixelData(bx,by,bw,bh)# x00 per 1px for Feather
+                
+                # Detect which the selection is freeform or rectangle.
+                if b'\x00' in mimg:
+                    # Freeform selection by lasso or wand tool
+                    # message('x00 detect!')
+                    self.free_form_selection = True
+                    # swap black and white pixel
+                    mimg = mimg.replace(b'\x00',b'\xee').replace(b'\xff',b'\x00').replace(b'\xee',b'\xff')
+                    # Convert from B/W (8bit x1) to RGBA8888 (8bit x 4)
+                    e = bytearray()
+                    for s in mimg:
+                        if s != b'\xff':e = e + bytearray(s + s + s + b'\xff') # not white (Alpha:255)
+                        else:e = e + bytearray(s + s + s + b'\x00') # white (Alpha:0)
+                    mimg = e
+                    mbin = QImage(mimg, bw, bh, QImage.Format_RGBA8888)
+                    mbin = mbin.transformed(QTransform().rotate(-90),Qt.SmoothTransformation)# rotate 90 for avoid bug
+
+
+                else:
+                    # Rectangle selection
+                    img = target_krita_node.projectionPixelData(bx,by,bw,bh)#bytearray()
+                    qbin = QImage(img, bw, bh, QImage.Format_RGBA8888).rgbSwapped()
                 dx,dy,dw,dh = bx,by,bw,bh;
                 # offset 
                 self.select_mode['is'] = True
@@ -265,28 +312,40 @@ class ImageToSVGConverter():
             else:
                 # full layer
                 img = target_krita_node.pixelData(x,y,w,h)#bytearray()
-                qbin = QImage(img, w, h, QImage.Format_RGBA8888).rgbSwapped()
+                # print(img) #b\xff0...
+                qbin = QImage(img, w, h, QImage.Format_RGBA8888).rgbSwapped()# rotate 90 for avoid bug
                 dx,dy,dw,dh = 0,0,w,h;
 
-            # print(img) #b\xff0...
-            # rotate 90 & yy in range(w,0,-1) for avoid bug
-            
-            qbin = qbin.transformed(QTransform().rotate(-90))
-            qbin_pixelColor = qbin.pixelColor
+            # Convert to binary -> [r,g,b,a]
             rgba_extend = rgba.extend
             
-            for xx in range(0,dh):
-                for yy in range(dw-1,0,-1):
-                    if xx == dh:continue
-                    if yy == dw:continue
-                    pixc = qbin_pixelColor(xx, yy)
-                    r = floor(pixc.red())
-                    g = floor(pixc.green())
-                    b = floor(pixc.blue())
-                    a = 255 # floor(pixc.alpha())
-                    #print(r,g,b,a)
-                    rgba_extend([r,g,b,a])
-            #print(rgba)
+            if self.free_form_selection:
+                mbin_pixelColor = mbin.pixelColor
+                for xx in range(0,dh):
+                    for yy in range(dw-1,0,-1):
+                        if xx == dh:continue # for avoid bug
+                        if yy == dw:continue # for avoid bug
+                        m = mbin_pixelColor(xx,yy)
+                        r = floor(m.red())
+                        g = floor(m.green())
+                        b = floor(m.blue())
+                        a = floor(m.alpha())
+                        if a > 225:r=g=b=0;a=255 # Remove annoying Unnecessary path,Helpfull!
+                        rgba_extend([r,g,b,a])
+            else:
+                qbin = qbin.transformed(QTransform().rotate(-90))
+                qbin_pixelColor = qbin.pixelColor
+                for xx in range(0,dh):
+                    for yy in range(dw-1,0,-1):
+                        if xx == dh:continue
+                        if yy == dw:continue
+                        pixc = qbin_pixelColor(xx, yy)
+                        r = floor(pixc.red())
+                        g = floor(pixc.green())
+                        b = floor(pixc.blue())
+                        a = 255 # floor(pixc.alpha())
+                        #print(r,g,b,a)
+                        rgba_extend([r,g,b,a])
         #rgba = array.array('i',rgba);
         return rgba,dw-1,dh-1
 
@@ -315,7 +374,7 @@ class ImageToSVGConverter():
        
        # set options and make svg data
        options = self.checkoptions(set_option)
-       if (options['lineart'] == True) and (options['strokewidth'] <= 0): options['strokewidth'] = 1
+       if (options['lineart'] == True) and (options['strokewidth'] <= 0): options['strokewidth'] = 2
        td = self.imagedataToTracedata(imgd, options )
        svgdata = self.getsvgstring(td, options,True)
        
@@ -531,6 +590,7 @@ class ImageToSVGConverter():
                     # End of i loop
                 # End of j loop
         # End of cnt loop
+
         return Dict({ 'array':arr, 'palette':palette })
 
     @lru_cache(maxsize=1024)
@@ -1120,8 +1180,17 @@ class ImageToSVGConverter():
         smp_seg = smp['segments']
         smp_seg_max = len(smp_seg)
         ops = options['scale']
-        # Line filter
-        if (options['linefilter'] == True and (smp_seg_max < 3)):return ''
+        closeZ = 'Z '
+        
+        # Filtering
+        if (options['linefilter'] == True and (smp_seg_max < 3)):return '' # Line filter
+        if tracedata['palette'][lnum]['a'] <= 10:return '' # Alpha filter
+        if self.ignore_white == True and self.color_filter(tracedata['palette'][lnum]):return '' # Color filter
+        if self.lasso_draw_mode == True:
+            if tracedata['palette'][lnum]['a'] < 254:return ''
+            tracedata['palette'][lnum] = self.fgc_rgb # Filled by Foreground Color
+        #if self.open_path_mode == True:closeZ = ' '
+
         # print('Segment_Length',smp_seg_max)
         
         # Starting path element, desc contains layer and path number
@@ -1141,13 +1210,14 @@ class ImageToSVGConverter():
         str += f'M {xx1} {yy1} '
 
         for pcnt in range(0,smp_seg_max):
+            #if closeZ == ' ' and pcnt == smp_seg_max-1:continue
             tp = smp_seg[pcnt]['type']
             xx2,yy2 = self.get_xy(smp_seg[pcnt],2,ops,roundc)
             str += f'{tp} {xx2} {yy2} '
             if smp_seg[pcnt].get('x3', None) != None:
                 xx3,yy3 = self.get_xy(smp_seg[pcnt],3,ops,roundc)
                 str += f'{xx3} {yy3} '
-        str += 'Z '
+        str += closeZ
 
         # End of creating non-hole path string
         # Hole children
@@ -1180,7 +1250,7 @@ class ImageToSVGConverter():
                 str += f'{xx1} {yy1} '
                 # pcnt = pcnt - 1
             # End of creating hole path string
-            str += 'Z '# Close path
+            str += closeZ# Close path
         # End of holepath check
         # Closing path element
         str += '" />'
@@ -1245,6 +1315,7 @@ class ImageToSVGConverter():
 
     def getsvgstring (self,tracedata, options,flag):
         options = self.checkoptions(options)
+        if (options['lineart'] == True) and (options['strokewidth'] <= 0): options['strokewidth'] = 2
         w = tracedata['width'] * options['scale']
         h = tracedata['height'] * options['scale']
         # SVG start
@@ -1285,7 +1356,13 @@ class ImageToSVGConverter():
     def torgbastr(self,c):
         return f'''rgba({c['r']},{c['g']},{c['b']},{c.a})'''
 
-    
+
+    def color_filter(self,c):
+        # message( f'''rgba({c['r']},{c['g']},{c['b']},{c.a})''')
+        if c['r'] == 255 and c['g'] == 255 and c['b'] == 255 :return True
+        else:return False
+
+
     def tosvgcolorstr(self,r,g,b,a,sw,ld):
         # sw = options['strokewidth'],  ld = options['lineart']
         op = a / 255.0
@@ -1299,10 +1376,16 @@ class ImageToSVGConverter():
     def tosvgcolorstr2(self,c,options):
         sw = options['strokewidth'];ld = options['lineart'];
         op = c['a'] / 255.0
-        rgbcolor = f'''rgb({c['r']},{c['g']},{c['b']})'''
+        if self.lasso_draw_mode == True:
+            s = self.bgc_rgb;
+            strkcolor = f'''rgb({s['r']},{s['g']},{s['b']})'''
+            fillcolor = f'''rgb({c['r']},{c['g']},{c['b']})'''
+        else:
+            strkcolor = f'''rgb({c['r']},{c['g']},{c['b']})''';
+            fillcolor = f'''rgb({c['r']},{c['g']},{c['b']})'''
         if ld == True:
-            return f'fill="none" stroke="{rgbcolor}" stroke-width="{sw}"  paint-order="stroke" stroke-linejoin="round" opacity="{op}" '
-        return f'fill="{rgbcolor}" stroke="{rgbcolor}" stroke-width="{sw}"  paint-order="stroke" stroke-linejoin="round" opacity="{op}" '
+            return f'fill="none" stroke="{strkcolor}" stroke-width="{sw}"  paint-order="stroke" stroke-linejoin="round" opacity="{op}" '
+        return f'fill="{fillcolor}" stroke="{strkcolor}" stroke-width="{sw}"  paint-order="stroke" stroke-linejoin="round" opacity="{op}" '
 
 
     # HTML Helper function: Appending an <svg> element to a container from an svgstring
@@ -1419,6 +1502,15 @@ class ImageToSVGConverter():
 
 
 d_opt=Dict()
+x_opt={
+    'ignore_white' : False, 
+    'lasso_draw_mode' : False,
+    'open_path_mode' : False
+    }
+
+chkb_ext = None
+chkb_ext2 = None
+
 opt_keys=[]
 
 pmenu = Dict({
@@ -1438,9 +1530,9 @@ lmenu = Dict({
 class Vectrize(DockWidget):
 
     def __init__(self):
-        global opt,opt_keys,pmenu,lmenu
+        global x_opt,opt,opt_keys,pmenu,lmenu,chkb_ext,chkb_ext2,chkb_ext3
         super().__init__()
-        self.setWindowTitle("Vectrize v0.31")
+        self.setWindowTitle("Vectrize v0.40")
         self.opt=Dict()
         gen = ImageToSVGConverter()
         opt_keys = list(gen.optionpresets['default'].keys())
@@ -1471,6 +1563,11 @@ class Vectrize(DockWidget):
         hl2 = QFrame()
         hl2.setFrameShape(QFrame.HLine)
         hl2.setFrameShadow(QFrame.Sunken)
+
+        hl3 = QFrame()
+        hl3.setFrameShape(QFrame.HLine)
+        hl3.setFrameShadow(QFrame.Sunken)
+
 
         # Combo box setting
         pkey= list(pmenu.keys())
@@ -1517,7 +1614,7 @@ class Vectrize(DockWidget):
 
         fbox.addRow(QLabel('Error threshold for Line'),d_opt.ltres)
         fbox.addRow(QLabel('Error threshold Q-Spline'),d_opt.qtres)
-        fbox.addRow(QLabel('Path omit shorter than (0–8)'),d_opt.pathomit)
+        fbox.addRow(QLabel('Path omit shorter than (0–25)'),d_opt.pathomit)
         fbox.addRow(QLabel('RightAngle Enhance'),d_opt.rightangleenhance) # bool
         fbox.addRow(QLabel('Color Sampling or Palette'),d_opt.colorsampling) # combo
         fbox.addRow(QLabel('Use colors (0 &lt; gray &lt; 8– &lt; full)'),d_opt.numberofcolors)
@@ -1551,6 +1648,21 @@ class Vectrize(DockWidget):
         # lb15 = QLabel('lcpr & qcpr\n Don\'t use for large image');
         # hbox.addWidget(lb15);hbox.addWidget(d_opt.lcpr);hbox.addWidget(d_opt.qcpr);
 
+
+        chkb_ext = QCheckBox("Ignore white pixel",self) # bool
+        chkb_ext.setChecked( x_opt['ignore_white'] )
+        chkb_ext2 = QCheckBox("Lasso Draw (Fgc/Bgc)",self) # bool
+        chkb_ext2.setChecked( x_opt['lasso_draw_mode'] )
+
+
+        #chkb_ext3 = QCheckBox("opened",self) # bool
+        #chkb_ext3.setChecked( x_opt['open_path_mode'] )
+
+        vlast = QHBoxLayout()
+        vlast.addWidget(chkb_ext)
+        vlast.addWidget(chkb_ext2)
+        #vlast.addWidget(chkb_ext3)
+        
         hlast = QHBoxLayout()
         hlast.addWidget(btn)
         vbox.addLayout(fbox)
@@ -1563,8 +1675,10 @@ class Vectrize(DockWidget):
         
         vbox.addLayout(fbox3)
         
-                
         vbox.addLayout(hbox)
+        vbox.addWidget(hl3)
+        
+        vbox.addLayout(vlast)
         vbox.addLayout(hlast)
         
         ft=QLabel(' Powerd by Imagetracer.js 1.2.6')
@@ -1680,6 +1794,9 @@ class Vectrize(DockWidget):
         )
         """
         gen.optionpresets['default'] = m['krita_set']
+        gen.ignore_white = chkb_ext.isChecked()
+        gen.lasso_draw_mode = chkb_ext2.isChecked()
+        # gen.open_path_mode = chkb_ext3.isChecked()
         
         gen.kritaToSVG()
         elapse = time.time() - st
