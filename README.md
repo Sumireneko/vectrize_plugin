@@ -1,5 +1,5 @@
 # Vectrize plugin for Krita  
-ver 0.45   
+ver 0.48    
 This is an experimental plugin works on Krita,  
 It can that tracing as  svg path on selected area or full image.  
 Not need Node.js and Runtime etc.  
@@ -30,6 +30,10 @@ Thanks to each libraries and application authors!
  
 
 # Update History
+v0.48 - 2024/04/02  
+Improve GUI layout,Add support tools  
+Add short cut button of Shape ordering and Shape style copy/paste commands  
+
 v0.45 - 2024/03/31  
 Change GUI Layout  
 Add ToolTips(It appear by hover on a label)   
