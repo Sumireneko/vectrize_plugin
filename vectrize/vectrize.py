@@ -11,7 +11,7 @@ from addict import Dict
 
 '''
  ===============================================
- Vectrize plugin v0.40 for Krita 5.2.2 later
+ Vectrize plugin v0.48 for Krita 5.2.2 later
  ===============================================
  Copyright (C) 2024 L.Sumireneko.M
  This program is free software: you can redistribute it and/or modify it under the 
@@ -1564,7 +1564,7 @@ class Vectrize(DockWidget):
     def __init__(self):
         global x_opt,opt,opt_keys,pmenu,lmenu,chkb_ext,chkb_ext2,chkb_ext3,chkb_ext4
         super().__init__()
-        self.setWindowTitle("Vectrize v0.45")
+        self.setWindowTitle("Vectrize v0.48")
         self.opt=Dict()
         gen = ImageToSVGConverter()
         opt_keys = list(gen.optionpresets['default'].keys())
@@ -1678,9 +1678,9 @@ class Vectrize(DockWidget):
         ucol.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
         ucol.setToolTip('1 - 7 : GrayScale \n 8 - : RGBColor)')
         fboxz.addRow(ucol,d_opt.numberofcolors)
-
-        fboxz.addRow(QLabel('Layering Method'),d_opt.layering) # combo
         fboxz.addRow(QLabel('Color Sampling'),d_opt.colorsampling) # combo
+        fboxz.addRow(QLabel('Layering Method'),d_opt.layering) # combo
+
         
         f_cont = QHBoxLayout()
         f_lt = QFormLayout()
@@ -1707,28 +1707,75 @@ class Vectrize(DockWidget):
         chkb_ext.setChecked( x_opt['ignore_white'] )
         f_lt.addRow(QLabel('Ignore white pixel'),chkb_ext);# bool
 
-        asv = QLabel('Support Tools');asv.setFont(QFont('Arial',12,QFont.DemiBold));
-        #f_lt.addRow(asv,QLabel(''));
+        asv = QLabel('Shape Support Tools');asv.setFont(QFont('Arial',12,QFont.DemiBold));
+        size_policy = QSizePolicy(QSizePolicy.Minimum,QSizePolicy.Minimum)
 
+        # Color picker
         btn2 = QPushButton("Color Picker",self)
+        btn2.setIcon(Krita.instance().icon('sample-screen'))
         btn2.clicked.connect(self.scrn_smpl)
-        btn2.setToolTip('Direct change the shape color\n Useful for shape edit or color matching \n This triggered to Sample Screen command')
-        #f_lt.addRow(btn2,QLabel(''));
+        btn2.setToolTip('Color Picker:\nDirect change the shape color\n Useful for shape edit or color matching \n This triggered to Sample Screen command')
 
+        # rid of sawtooth
         btn3 = QPushButton("Rid of SawTooth",self)
+        btn3.setIcon(Krita.instance().icon('roundmarker'))
         btn3.clicked.connect(self.erode)
         btn3.setToolTip('Use to selection before vectrize,\n It become smooth. \n This triggered to smooth command x4')
-        #f_lt.addRow(btn3,QLabel(''));
 
-
-        btn4 = QPushButton("Shape2Selection",self)
+        # shape to selection
+        btn4 = QPushButton("Shape to Sel",self)
+        btn4.setIcon(Krita.instance().icon('import-as-selectionMask'))
         btn4.clicked.connect(self.shp_sel)
         btn4.setToolTip('Make selection from Selected Shape\n This triggered to convert shapes to vector selection')
-        #f_lt.addRow(btn4,QLabel(''));
 
-        hbox3.addWidget(asv);hbox3.addWidget(btn2);
-        hbox4.addWidget(btn3);hbox4.addWidget(btn4);
+        # raise
+        btn5 = QPushButton("",self)
+        btn5.setIcon(Krita.instance().icon('arrow-up'))
+        btn5.setMaximumSize(40,40)
+        btn5.setSizePolicy(size_policy)
+        btn5.clicked.connect(self.shp_raise)
+        btn5.setToolTip('Raise the shape \nRaise order the shape that current selected ')
 
+        # down
+        btn6 = QPushButton("",self)
+        btn6.setIcon(Krita.instance().icon('arrow-down'))
+        btn6.setMaximumSize(40,40)
+        btn6.setSizePolicy(size_policy)
+        btn6.clicked.connect(self.shp_lower)
+        btn6.setToolTip('Down the shape \nDown order the shape that current selected ')
+
+        # style copy
+        btn7 = QPushButton("",self)
+        btn7.setIcon(Krita.instance().icon('similar-selection'))
+        btn7.setMaximumSize(40,40)
+        btn7.setSizePolicy(size_policy)
+        btn7.clicked.connect(self.shp_cpy)
+        btn7.setToolTip('Copy Shape Style:\n Copy style of shape that current selected\n Stroke color and width,Fill color etc')
+
+        # style paste
+        btn8 = QPushButton("",self)
+        btn8.setIcon(Krita.instance().icon('download'))
+        btn8.setMaximumSize(40,40)
+        btn8.setSizePolicy(size_policy)
+        btn8.clicked.connect(self.shp_style)
+        btn8.setToolTip('Paste Shape Style:\n Paste style to current selected shape\n Stroke color and width,Fill color_q_cycles etc')
+
+
+
+        v_ord = QVBoxLayout()
+        v_ord.addWidget(btn5);v_ord.addWidget(btn6);
+        
+        v_ord2 = QVBoxLayout()
+        v_ord2.addWidget(btn7);v_ord2.addWidget(btn8);
+
+        v_ord3 = QVBoxLayout()
+        t1 = QHBoxLayout()
+        t2 = QHBoxLayout()
+        t1.addWidget(asv);t1.addWidget(btn2);
+        t2.addWidget(btn3);t2.addWidget(btn4);
+        
+        v_ord3.addLayout(t1);v_ord3.addLayout(t2);
+        hbox4.addLayout(v_ord);hbox4.addLayout(v_ord2);hbox4.addLayout(v_ord3);
 
         # chkb_ext4 = QCheckBox("GrayScale",self) # bool
         # chkb_ext4.setChecked( x_opt['gray_mode'] )
@@ -1799,19 +1846,14 @@ class Vectrize(DockWidget):
         chkb_ext3.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
         chkb_ext3.setToolTip('Skip the dialogs that \n Image size warning and Elapse Time')
 
-
-
         vlast = QHBoxLayout()
         vlast.addWidget(chkb_ext2)
         vlast.addWidget(chkb_ext3)
         
         hlast = QHBoxLayout()
         hlast.addWidget(btn)
-        
-        
-        
+
         #Layout
-        
         vbox.addWidget(es)
         vbox.addLayout(f_cont0)
         vbox.addWidget(hl0)
@@ -1821,7 +1863,7 @@ class Vectrize(DockWidget):
         vbox.addWidget(hl2)
         vbox.addLayout(f_cont2)
         vbox.addWidget(hl5)
-        vbox.addLayout(hbox3)
+
         vbox.addLayout(hbox4)
         
         vbox.addLayout(hbox)
@@ -1840,6 +1882,7 @@ class Vectrize(DockWidget):
         tbox.addSpacing(8)
         widget.setLayout(tbox)
         self.setWidget(widget)
+        btn.setIcon(Krita.instance().icon('split-layer'))
         btn.clicked.connect(self.vector_exe)
         
     def canvasChanged(self, canvas):
@@ -1860,6 +1903,20 @@ class Vectrize(DockWidget):
 
     def shp_sel(self, canvas):
         Krita.instance().action('convert_shapes_to_vector_selection').trigger()
+
+    def shp_raise(self, canvas):
+        Krita.instance().action('object_order_raise').trigger()
+
+    def shp_lower(self, canvas):
+        Krita.instance().action('object_order_lower').trigger()
+
+    def shp_cpy(self, canvas):
+        Krita.instance().action('edit_copy').trigger()
+
+
+    def shp_style(self, canvas):
+        Krita.instance().action('paste_shape_style').trigger()
+
 
     def erode(self, canvas):
         Krita.instance().action('smoothselection').trigger()
