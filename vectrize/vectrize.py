@@ -1,30 +1,49 @@
-from krita import *
-from PyQt5.QtWidgets import *
-from PyQt5.Qt import *
-from PyQt5.QtGui import *
-import math,random,os,copy,time,sys,array
-from math import floor,ceil,sqrt
+# ===============================================
+# Vectrize plugin v0.5 for Krita 5.2.14 later
+# ===============================================
+# Copyright (C) 2025 L.Sumireneko.M
+# This program is free software: you can redistribute it and/or modify it under the 
+# terms of the GNU General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with this program.
+# If not, see <https://www.gnu.org/licenses/>. 
+
+
+import math, random, os, copy, time, sys, array
+from math import floor, ceil, sqrt
 from random import randint
 from io import BytesIO
 from functools import lru_cache
 from addict import Dict
 
-'''
- ===============================================
- Vectrize plugin v0.48 for Krita 5.2.2 later
- ===============================================
- Copyright (C) 2024 L.Sumireneko.M
- This program is free software: you can redistribute it and/or modify it under the 
- terms of the GNU General Public License as published by the Free Software Foundation,
- either version 3 of the License, or (at your option) any later version.
+import krita
+try:
+    if int(krita.qVersion().split('.')[0]) == 5:
+        raise
 
- This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- See the GNU General Public License for more details.
+    # PyQt6
+    from PyQt6.QtWidgets import *
+    from PyQt6.QtGui import *
+    from PyQt6.QtCore import (
+        QObject, QEvent, QTimer, QSignalBlocker, pyqtSignal, QPointF, Qt
+    )
 
- You should have received a copy of the GNU General Public License along with this program.
- If not, see <https://www.gnu.org/licenses/>. 
-'''
+except:
+    # PyQt5 fallback
+    from PyQt5.QtWidgets import *
+    from PyQt5.QtGui import *
+    from PyQt5.QtCore import (
+        QObject, QEvent, QTimer, QSignalBlocker, pyqtSignal, QPointF, Qt
+    )
+from krita import *
+
+plugin_ver = "Vectrize v0.50"
+
 # This plugin based on imagetracer.js v1.2.6  
 # https://github.com/jankovicsandras/imagetracerjs
 
@@ -237,6 +256,7 @@ class ImageToSVGConverter():
         self.open_path_mode = False
         self.erode_selection = False
         self.select_mode={'is':False,'x':0,'y':0}
+        self.continuous_draw = False
 
     def krita_load_node(self):
         krita_instance = Krita.instance()
@@ -356,13 +376,19 @@ class ImageToSVGConverter():
 
     def krita_save_node(self,svgdata):
         currentDoc = Krita.instance().activeDocument()
-        # target_krita_layer = currentDoc.activeNode()
+        working_paint_layer = currentDoc.activeNode()
+        print("Saving current layer:", working_paint_layer.name(), working_paint_layer.type())
+
         root = currentDoc.rootNode()
-        
+
         if len(svgdata) > 0:
             vnode = currentDoc.createVectorLayer('vectorized data')
             vnode.addShapesFromSvg(svgdata)
             root.addChildNode(vnode , None )
+
+        if self.continuous_draw==True:
+            QTimer.singleShot(0, lambda: currentDoc.setActiveNode(working_paint_layer))
+
         return
 
     def kritaToSVG(self):
@@ -1417,6 +1443,7 @@ class ImageToSVGConverter():
         return f'fill="{fillcolor}" stroke="{strkcolor}" stroke-width="{sw}"  paint-order="stroke" stroke-linejoin="round" opacity="{op}" '
 
 
+
     # HTML Helper function: Appending an <svg> element to a container from an svgstring
     def appendSVGString(svgstr, parentid):
         return
@@ -1536,13 +1563,15 @@ x_opt={
     'lasso_draw_mode' : False,
     'open_path_mode' : False,
     'gray_mode' : False,
-    'warning_skip': False
+    'warning_skip': False,
+    'continuous_draw': True
     }
 
 chkb_ext = None
 chkb_ext2 = None
 chkb_ext3 = None
 chkb_ext4 = None
+chkb_cond = None
 opt_keys=[]
 
 pmenu = Dict({
@@ -1556,15 +1585,43 @@ lmenu = Dict({
     'Parallel (Fast)': 1
     })
 
+ 
+# Custom Widget (Horizontal Line,Vertical Line)
+class QHLine(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initWidget()
+        
+    def initWidget(self):
+        self.hl = QFrame()
+        self.hl.setFrameShape(QFrame.HLine)
+        self.hl.setFrameShadow(QFrame.Sunken)
+        layout = QHBoxLayout()
+        layout.addWidget(self.hl)
+        layout.setContentsMargins(0,0,0,0)
+        self.setLayout(layout) # It nessesasry
 
+class QVLine(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initWidget()
+        
+    def initWidget(self):
+        self.hl = QFrame()
+        self.hl.setFrameShape(QFrame.VLine)
+        self.hl.setFrameShadow(QFrame.Sunken)
+        layout =QVBoxLayout()
+        layout.addWidget(self.hl)
+        layout.setContentsMargins(0,0,0,0)
+        self.setLayout(layout) # It nessesasry
 
 
 class Vectrize(DockWidget):
 
     def __init__(self):
-        global x_opt,opt,opt_keys,pmenu,lmenu,chkb_ext,chkb_ext2,chkb_ext3,chkb_ext4
+        global x_opt,opt,opt_keys,pmenu,lmenu,chkb_ext,chkb_ext2,chkb_ext3,chkb_ext4,chkb_cond,plugin_ver
         super().__init__()
-        self.setWindowTitle("Vectrize v0.48")
+        self.setWindowTitle(plugin_ver)
         self.opt=Dict()
         gen = ImageToSVGConverter()
         opt_keys = list(gen.optionpresets['default'].keys())
@@ -1590,30 +1647,16 @@ class Vectrize(DockWidget):
 
         chbox = Dict()
 
-        hl0 = QFrame()
-        hl0.setFrameShape(QFrame.HLine)
-        hl0.setFrameShadow(QFrame.Sunken)
-
-        hl = QFrame()
-        hl.setFrameShape(QFrame.HLine)
-        hl.setFrameShadow(QFrame.Sunken)
+        hl0 = QHLine()
+        hl = QHLine()
+        hl2 = QHLine()
+        hl3 = QHLine()
+        hl4 = QHLine()
+        hl5 = QHLine()
         
-        hl2 = QFrame()
-        hl2.setFrameShape(QFrame.HLine)
-        hl2.setFrameShadow(QFrame.Sunken)
-
-        hl3 = QFrame()
-        hl3.setFrameShape(QFrame.HLine)
-        hl3.setFrameShadow(QFrame.Sunken)
-
-        hl4 = QFrame()
-        hl4.setFrameShape(QFrame.HLine)
-        hl4.setFrameShadow(QFrame.Sunken)
+        hv0 = QVLine()
+        hv1 = QVLine()
         
-        hl5 = QFrame()
-        hl5.setFrameShape(QFrame.HLine)
-        hl5.setFrameShadow(QFrame.Sunken)
-
         # Combo box setting
         pkey= list(pmenu.keys())
         for pm in pkey:
@@ -1802,6 +1845,7 @@ class Vectrize(DockWidget):
         f_rt.addRow(QLabel('Line remove filter'),d_opt.linefilter);# bool
 
         f_cont.addLayout(f_lt)
+        f_cont.addWidget(hv0)
         f_cont.addLayout(f_rt)
 
 
@@ -1825,29 +1869,43 @@ class Vectrize(DockWidget):
 
 
         f_cont2.addLayout(f_lt2)
+        f_cont2.addWidget(hv1)
         f_cont2.addLayout(f_rt2)
 
         # hbox3.addRow(QLabel('Viewbox'),self.opt_viewbox);d_opt.viewbox = self.opt_viewbox.isChecked() # bool
         # self.opt_desc = QCheckBox("Add desc attribute");self.opt_desc.setChecked( data_option_presets['desc'] ) # bool
         # hbox3.addRow(QLabel('desc info'),self.opt_desc);d_opt.desc = self.opt_desc.isChecked() # bool_chk
 
+
         
         d_opt.lcpr = data_option_presets['lcpr']
         d_opt.qcpr = data_option_presets['qcpr']
 
-
-        chkb_ext2 = QCheckBox("Lasso Draw mode\nby FG/BGColor",self) # bool
+        chkb_ext2 = QPushButton()# bool button
         chkb_ext2.setChecked( x_opt['lasso_draw_mode'] )
+        chkb_ext2.setCheckable(True)
+        chkb_ext2.setIcon(Krita.instance().icon('tool_outline_selection'))
+        chkb_ext2.setIconSize(QSize(16, 16))
+        chkb_ext2.setText("Lasso Mode")
         chkb_ext2.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
-        chkb_ext2.setToolTip('Fill color as Fore GroundColor \n Stroke(Border) color as BackGround Color')
+        chkb_ext2.setToolTip('Use freehand selection tool,and Fill color as Fore GroundColor \n Stroke(Border) color as BackGround Color')
+        chkb_ext2.clicked.connect(lambda: self.on_lasso_mode_toggled(chkb_ext2.isChecked()))
 
         chkb_ext3 = QCheckBox("Skip the warning.",self) # bool
         chkb_ext3.setChecked( x_opt['warning_skip'] )
         chkb_ext3.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
         chkb_ext3.setToolTip('Skip the dialogs that \n Image size warning and Elapse Time')
 
+        chkb_cond = QCheckBox("Keep active layer");
+        chkb_cond.setChecked( x_opt['continuous_draw'] ) # bool
+        chkb_cond.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        chkb_cond.setToolTip('Keep current layer focus for continuous drawing')
+
+
+
         vlast = QHBoxLayout()
         vlast.addWidget(chkb_ext2)
+        vlast.addWidget(chkb_cond)
         vlast.addWidget(chkb_ext3)
         
         hlast = QHBoxLayout()
@@ -1924,6 +1982,14 @@ class Vectrize(DockWidget):
         Krita.instance().action('smoothselection').trigger()
         Krita.instance().action('smoothselection').trigger()
 
+    def on_lasso_mode_toggled(self, checked):
+        if checked:
+            Krita.instance().action('KisToolSelectOutline').trigger()
+            chkb_ext3.setChecked(True)
+            chkb_cond.setChecked(True)
+        else:
+            pass
+
     # called after setup(self)
     def vector_exe(self):
         global opt,opt_keys
@@ -1997,6 +2063,9 @@ class Vectrize(DockWidget):
         except:
             return
             
+
+
+
         if target_krita_node.type() != 'paintlayer':
             message('This effect to only Paint Layer,\n Please select a Paint Layer!')
             return
@@ -2015,6 +2084,7 @@ class Vectrize(DockWidget):
         gen.optionpresets['default'] = m['krita_set']
         gen.ignore_white = chkb_ext.isChecked()
         gen.lasso_draw_mode = chkb_ext2.isChecked()
+        gen.continuous_draw = chkb_cond.isChecked()
         gen.warning_skip = chkb_ext3.isChecked()
         # gen.gray_mode = chkb_ext4.isChecked()
         
