@@ -26,8 +26,8 @@ Please Install this into pykrita directry too
 Thanks to each libraries and application authors!  
 ```
 pykrita/
-    addict/ <----Install manually by copying the files
-    vectrize/<----Install via Krita’s built‑in plugin installer (Select zip file)
+    addict/ <----Install manually by copying the addict library files
+    vectrize/<----Install via Krita’s built‑in plugin installer (Select the vectrize's zip file)
       :
     (other plugin directories)
       :
