@@ -1,5 +1,5 @@
 # ===============================================
-# Vectrize plugin v0.5 for Krita 5.2.14 later
+# Vectrize plugin v0.6 for Krita 5,6
 # ===============================================
 # Copyright (C) 2025 L.Sumireneko.M
 # This program is free software: you can redistribute it and/or modify it under the 
@@ -22,27 +22,18 @@ from functools import lru_cache
 from addict import Dict
 
 import krita
-try:
-    if int(krita.qVersion().split('.')[0]) == 5:
-        raise
+from .qt_compat import (
+    SafeQtWidgets as QtWidgets, QtCore, QtGui, QC, 
+    qt_exec, qt_event, qt_major, QTransform,QImage,
+    QApplication, QObject, QEvent, QTimer, QSignalBlocker, pyqtSignal,
+    QWidget, QDialog, QDockWidget, QMessageBox, QFrame,
+    QVBoxLayout, QHBoxLayout, QFormLayout,QSizePolicy,
+    QPushButton, QCheckBox, QRadioButton, QButtonGroup, 
+    QComboBox, QLineEdit, QTextEdit, QLabel,
+    QAction, QIcon, QFont, QSize, QPointF, Qt
+)
 
-    # PyQt6
-    from PyQt6.QtWidgets import *
-    from PyQt6.QtGui import *
-    from PyQt6.QtCore import (
-        QObject, QEvent, QTimer, QSignalBlocker, pyqtSignal, QPointF, Qt
-    )
-
-except:
-    # PyQt5 fallback
-    from PyQt5.QtWidgets import *
-    from PyQt5.QtGui import *
-    from PyQt5.QtCore import (
-        QObject, QEvent, QTimer, QSignalBlocker, pyqtSignal, QPointF, Qt
-    )
-from krita import *
-
-plugin_ver = "Vectrize v0.50"
+plugin_ver = "Vectrize v0.60"
 
 # This plugin based on imagetracer.js v1.2.6  
 # https://github.com/jankovicsandras/imagetracerjs
@@ -252,6 +243,7 @@ class ImageToSVGConverter():
         self.gray_mode = False
         self.warning_skip = False
         self.ignore_white = False
+        self.ignore_black = False
         self.lasso_draw_mode = False
         self.open_path_mode = False
         self.erode_selection = False
@@ -319,14 +311,20 @@ class ImageToSVGConverter():
                         if s != b'\xff':e = e + bytearray(s + s + s + b'\xff') # not white (Alpha:255)
                         else:e = e + bytearray(s + s + s + b'\x00') # white (Alpha:0)
                     mimg = e
-                    mbin = QImage(mimg, bw, bh, QImage.Format_RGBA8888)
-                    mbin = mbin.transformed(QTransform().rotate(-90),Qt.SmoothTransformation)# rotate 90 for avoid bug
+                    mbin = QImage(mimg, bw, bh, QC.ImgFormat.Format_RGBA8888)
+
+                    mbin = mbin.transformed(
+                        QTransform().rotate(-90),
+                        QC.TransformMode.SmoothTransformation
+                    )
+
 
 
                 else:
                     # Rectangle selection
                     img = target_krita_node.projectionPixelData(bx,by,bw,bh)#bytearray()
-                    qbin = QImage(img, bw, bh, QImage.Format_RGBA8888).rgbSwapped()
+                    qbin = QImage(img, bw, bh, QC.ImgFormat.Format_RGBA8888).rgbSwapped()
+
                 dx,dy,dw,dh = bx,by,bw,bh;
                 # offset 
                 self.select_mode['is'] = True
@@ -336,7 +334,7 @@ class ImageToSVGConverter():
                 # full layer
                 img = target_krita_node.pixelData(x,y,w,h)#bytearray()
                 # print(img) #b\xff0...
-                qbin = QImage(img, w, h, QImage.Format_RGBA8888).rgbSwapped()# rotate 90 for avoid bug
+                qbin = QImage(img, w, h, QC.ImgFormat.Format_RGBA8888).rgbSwapped()# rotate 90 for avoid bug
                 dx,dy,dw,dh = 0,0,w,h;
 
             # Convert to binary -> [r,g,b,a]
@@ -471,24 +469,27 @@ class ImageToSVGConverter():
         # End of parallel layering
         return tracedata
 
-    def checkoptions(self,options):
-        options = options if options == None else Dict()
-        # Option preset
-        if (type(options) is str):
-            options = options.lower()
-            if self.optionpresets[options]:
-                options = self.optionpresets[options]
-            else:
-                options = Dict()
-            # Defaults
-        # print(self.optionpresets['default'].keys())
-        ok = self.optionpresets['default'].keys()#list()
-        # print(str(type(options)))
-        for k in ok:
-            # print(f'{k}')
-            if options.get(k, None) == None:
-                options[k] = self.optionpresets['default'][k]
-        return options
+    def checkoptions(self, options):
+    
+            if options is None:
+                options = Dict()# create empty Dict
+                
+            # Replace to preset Dict if option is string
+            if (type(options) is str):
+                preset_name = options.lower()
+                if preset_name in self.optionpresets:
+                    # Avoid to overriden by default data, so make copy in here
+                    options = Dict(self.optionpresets[preset_name].copy())
+                else:
+                    options = Dict()
+    
+            # Fill by Defaults data
+            ok = self.optionpresets['default'].keys()
+            for k in ok:
+                if options.get(k, None) == None:
+                    options[k] = self.optionpresets['default'][k]
+            return options
+
 
     #////////////////////////////////////////////////////////////
     #//
@@ -645,7 +646,7 @@ class ImageToSVGConverter():
         idx=0;palette = Dict();
         imgseed = len(imgd['data'])/4
         for i in range(0,numberofcolors):
-            idx = randint(0, imgseed) * 4
+            idx = randint(0, int(imgseed)) * 4
             imgq = imgd['data'][idx:idx+4]# get a list of imgd.data[idx] to imgd.data[idx + 3]
             palette[i]=Dict({
                 'r': imgq[0],
@@ -1238,9 +1239,16 @@ class ImageToSVGConverter():
         closeZ = 'Z '
         
         # Filtering
+
+        if self.ignore_black == True:
+            p = tracedata['palette'][lnum]
+            if self.ignore_black and (p['r'] + p['g'] + p['b'] < 3):# Black pixel filter
+                return
+
         if (options['linefilter'] == True and (smp_seg_max < 3)):return '' # Line filter
         if tracedata['palette'][lnum]['a'] <= 10:return '' # Alpha filter
         if self.ignore_white == True and self.color_filter(tracedata['palette'][lnum]):return '' # Color filter
+
         if self.lasso_draw_mode == True:
             if tracedata['palette'][lnum]['a'] < 254:return ''
             tracedata['palette'][lnum] = self.fgc_rgb # Filled by Foreground Color
@@ -1400,7 +1408,8 @@ class ImageToSVGConverter():
         # End of layers loop
         # SVG End
         if flag == False:return ''.join(svdbody)
-        return ''.join([svghead , ''.join(svdbody) , '</svg>'])
+        clean_body = [s for s in svdbody if s is not None]
+        return ''.join([svghead, ''.join(clean_body), '</svg>'])
 
 
     # Comparator for numeric Array.sort
@@ -1560,6 +1569,7 @@ class ImageToSVGConverter():
 d_opt=Dict()
 x_opt={
     'ignore_white' : False, 
+    'ignore_black' : False, 
     'lasso_draw_mode' : False,
     'open_path_mode' : False,
     'gray_mode' : False,
@@ -1571,6 +1581,7 @@ chkb_ext = None
 chkb_ext2 = None
 chkb_ext3 = None
 chkb_ext4 = None
+chkb_ext5 = None
 chkb_cond = None
 opt_keys=[]
 
@@ -1591,11 +1602,12 @@ class QHLine(QWidget):
     def __init__(self):
         super().__init__()
         self.initWidget()
-        
+
+
     def initWidget(self):
         self.hl = QFrame()
-        self.hl.setFrameShape(QFrame.HLine)
-        self.hl.setFrameShadow(QFrame.Sunken)
+        self.hl.setFrameShape(QC.Shape.HLine)
+        self.hl.setFrameShadow(QC.Shadow.Sunken)
         layout = QHBoxLayout()
         layout.addWidget(self.hl)
         layout.setContentsMargins(0,0,0,0)
@@ -1608,30 +1620,55 @@ class QVLine(QWidget):
         
     def initWidget(self):
         self.hl = QFrame()
-        self.hl.setFrameShape(QFrame.VLine)
-        self.hl.setFrameShadow(QFrame.Sunken)
-        layout =QVBoxLayout()
+        self.hl.setFrameShape(QC.Shape.HLine)
+        self.hl.setFrameShadow(QC.Shadow.Sunken)
+        layout = QVBoxLayout()
         layout.addWidget(self.hl)
         layout.setContentsMargins(0,0,0,0)
         self.setLayout(layout) # It nessesasry
 
 
-class Vectrize(DockWidget):
+class Vectrize(krita.DockWidget):
 
     def __init__(self):
-        global x_opt,opt,opt_keys,pmenu,lmenu,chkb_ext,chkb_ext2,chkb_ext3,chkb_ext4,chkb_cond,plugin_ver
+        global x_opt,opt,opt_keys,pmenu,lmenu,chkb_ext,chkb_ext2,chkb_ext3,chkb_ext4,chkb_cond,plugin_ver,chkb_ext5
+        global d_opt
+
         super().__init__()
         self.setWindowTitle(plugin_ver)
+        self.d_opt = d_opt
         self.opt=Dict()
+
         gen = ImageToSVGConverter()
         opt_keys = list(gen.optionpresets['default'].keys())
         data_option_presets = gen.optionpresets['default']
         
         widget = QWidget()
+
+
+        # Preset combo box
+        self.preset_combo = QComboBox()
+        self.preset_combo.addItems(gen.optionpresets.keys())
+        # set 'default' 
+        default_index = self.preset_combo.findText('default')
+        if default_index >= 0:
+            self.preset_combo.setCurrentIndex(default_index)
+        # Add the layout
+
+        preset_label = QLabel("Preset:")
+        preset_label.setFont(QFont('Arial', 12, QC.FontWeight.DemiBold))
+
+        pboxz = QFormLayout()
+        pboxz.addRow(preset_label, self.preset_combo)
+
+
+        # UI
         btn = QPushButton("Vectrize!",self)
         
-        
         vbox = QVBoxLayout()
+        vbox.addSpacing(5)
+        vbox.addLayout(pboxz)
+
         hbox = QHBoxLayout()
         fboxz = QFormLayout()
         fbox = QFormLayout()
@@ -1647,6 +1684,7 @@ class Vectrize(DockWidget):
 
         chbox = Dict()
 
+        hl_ = QHLine()
         hl0 = QHLine()
         hl = QHLine()
         hl2 = QHLine()
@@ -1702,14 +1740,15 @@ class Vectrize(DockWidget):
         f_lt0 = QFormLayout()
         f_rt0 = QFormLayout()
 
-        es = QLabel('Error threshold for');es.setFont(QFont('Arial',12,QFont.DemiBold));
+        es = QLabel('Error threshold for');
+        es.setFont(QFont('Arial', 12, QC.FontWeight.DemiBold))
         ltr = QLabel('Line')
-        ltr.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        ltr.setCursor(QC.Cursor.PointingHandCursor)
         ltr.setToolTip('Set Large/Small value for large/small image size')
         f_lt0.addRow(ltr,d_opt.ltres)
         
         qtr = QLabel('Q-Spline')
-        qtr.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        qtr.setCursor(QC.Cursor.PointingHandCursor)
         qtr.setToolTip('Set Large/Small value for large/small image size')
         f_rt0.addRow(qtr,d_opt.qtres);
 
@@ -1718,7 +1757,7 @@ class Vectrize(DockWidget):
 
 
         ucol = QLabel('Use Colors ')
-        ucol.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        ucol.setCursor(QC.Cursor.PointingHandCursor)
         ucol.setToolTip('1 - 7 : GrayScale \n 8 - : RGBColor)')
         fboxz.addRow(ucol,d_opt.numberofcolors)
         fboxz.addRow(QLabel('Color Sampling'),d_opt.colorsampling) # combo
@@ -1729,20 +1768,20 @@ class Vectrize(DockWidget):
         f_lt = QFormLayout()
         f_rt = QFormLayout()
 
-        el = QLabel('Color Options');el.setFont(QFont('Arial',12,QFont.DemiBold));
-        fl = QLabel('Settings');fl.setFont(QFont('Arial',12,QFont.DemiBold));
+        el = QLabel('Color Options');el.setFont(QFont('Arial', 12, QC.FontWeight.DemiBold))
+        fl = QLabel('Settings');fl.setFont(QFont('Arial', 12, QC.FontWeight.DemiBold))
 
         # left column
         f_lt.addRow(el,QLabel(''));f_rt.addRow(fl,QLabel(''));
 
         mcr = QLabel('Min Color Ratio')
-        mcr.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        mcr.setCursor(QC.Cursor.PointingHandCursor)
         mcr.setToolTip(' If (Total pixels * Min color Ratio)  &lt; Colors,use random color')
         f_lt.addRow(mcr,d_opt.mincolorratio)
 
 
         cqc = QLabel('Quantize Cycle')
-        cqc.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        cqc.setCursor(QC.Cursor.PointingHandCursor)
         cqc.setToolTip('Color quantize times (1–3) \n Larger values makes slower ')
         f_lt.addRow(cqc,d_opt.colorquantcycles)
 
@@ -1750,8 +1789,17 @@ class Vectrize(DockWidget):
         chkb_ext.setChecked( x_opt['ignore_white'] )
         f_lt.addRow(QLabel('Ignore white pixel'),chkb_ext);# bool
 
-        asv = QLabel('Shape Support Tools');asv.setFont(QFont('Arial',12,QFont.DemiBold));
-        size_policy = QSizePolicy(QSizePolicy.Minimum,QSizePolicy.Minimum)
+        chkb_ext5 = QCheckBox("",self) # bool
+        chkb_ext5.setChecked( x_opt['ignore_black'] )
+        f_lt.addRow(QLabel('Ignore black pixel'),chkb_ext5);# bool
+
+        asv = QLabel('Shape Support Tools')
+        asv.setFont(QFont('Arial', 12, QC.FontWeight.DemiBold))
+        
+        size_policy = QSizePolicy(
+            QC.Policy.Minimum,
+            QC.Policy.Minimum
+        )
 
         # Color picker
         btn2 = QPushButton("Color Picker",self)
@@ -1828,17 +1876,17 @@ class Vectrize(DockWidget):
         f_rt.addRow(QLabel('Scale'),d_opt.scale)
         
         pom = QLabel('Path omit');
-        pom .setCursor(QCursor(QtCore.Qt.PointingHandCursor))
-        pom .setToolTip('Path omit shorter than tihs value.(0–25)')
+        pom.setCursor(QC.Cursor.PointingHandCursor)
+        pom.setToolTip('Path omit shorter than tihs value.(0–25)')
         f_rt.addRow(pom,d_opt.pathomit)
         
         dcm = QLabel('Rounding dec.pts')
-        dcm .setCursor(QCursor(QtCore.Qt.PointingHandCursor))
-        dcm .setToolTip('Rounding number of decimal point')
+        dcm.setCursor(QC.Cursor.PointingHandCursor)
+        dcm.setToolTip('Rounding number of decimal point')
         f_rt.addRow(dcm,d_opt.roundcoords)
 
         rae = QLabel('90° Enhance')
-        rae.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        rae.setCursor(QC.Cursor.PointingHandCursor)
         rae.setToolTip('Enhance Right Angle(90 degree) coner')
         f_rt.addRow(rae,d_opt.rightangleenhance) # bool
 
@@ -1850,8 +1898,13 @@ class Vectrize(DockWidget):
 
 
         # Form Box2
-        bl = QLabel('Blur');bl.setFont(QFont('Arial',12,QFont.DemiBold));
-        lst = QLabel('Stroke (Line)');lst.setFont(QFont('Arial',12,QFont.DemiBold));
+        bl = QLabel('Blur')
+        bl.setFont(QFont('Arial', 12, QC.FontWeight.DemiBold))
+
+        lst = QLabel('Stroke (Line)')
+        lst.setFont(QFont('Arial', 12, QC.FontWeight.DemiBold))
+
+
 
         f_cont2 = QHBoxLayout()
         f_lt2 = QFormLayout()
@@ -1887,18 +1940,18 @@ class Vectrize(DockWidget):
         chkb_ext2.setIcon(Krita.instance().icon('tool_outline_selection'))
         chkb_ext2.setIconSize(QSize(16, 16))
         chkb_ext2.setText("Lasso Mode")
-        chkb_ext2.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        chkb_ext2.setCursor(QC.Cursor.PointingHandCursor)
         chkb_ext2.setToolTip('Use freehand selection tool,and Fill color as Fore GroundColor \n Stroke(Border) color as BackGround Color')
         chkb_ext2.clicked.connect(lambda: self.on_lasso_mode_toggled(chkb_ext2.isChecked()))
 
         chkb_ext3 = QCheckBox("Skip the warning.",self) # bool
         chkb_ext3.setChecked( x_opt['warning_skip'] )
-        chkb_ext3.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        chkb_ext3.setCursor(QC.Cursor.PointingHandCursor)
         chkb_ext3.setToolTip('Skip the dialogs that \n Image size warning and Elapse Time')
 
         chkb_cond = QCheckBox("Keep active layer");
         chkb_cond.setChecked( x_opt['continuous_draw'] ) # bool
-        chkb_cond.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        chkb_cond.setCursor(QC.Cursor.PointingHandCursor)
         chkb_cond.setToolTip('Keep current layer focus for continuous drawing')
 
 
@@ -1912,6 +1965,7 @@ class Vectrize(DockWidget):
         hlast.addWidget(btn)
 
         #Layout
+        vbox.addWidget(hl_)
         vbox.addWidget(es)
         vbox.addLayout(f_cont0)
         vbox.addWidget(hl0)
@@ -1932,7 +1986,9 @@ class Vectrize(DockWidget):
         
         ft=QLabel(' Powerd by Imagetracer.js 1.2.6')
         ft.setFont(QFont('Arial',10)) 
-        ft.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+
+        ft.setAlignment(QC.Align.AlignRight | QC.Align.AlignVCenter)
+
         vbox.addWidget(ft)
         tbox = QHBoxLayout()
         tbox.addSpacing(8)
@@ -1942,16 +1998,16 @@ class Vectrize(DockWidget):
         self.setWidget(widget)
         btn.setIcon(Krita.instance().icon('split-layer'))
         btn.clicked.connect(self.vector_exe)
+
+        # Ignore the index sent ( _ ) and call the function : apply_preset()
+        self.preset_combo.currentIndexChanged.connect(lambda _: self.apply_preset())
         
     def canvasChanged(self, canvas):
         pass
 
 
     def ch_toggle(self, toggle):
-        if toggle == QtCore.Qt.Checked:
-            return True
-        else:
-            return False
+        return toggle == QC.CheckState.Checked
 
     def scrn_smpl(self, canvas):
         Krita.instance().action('sample_screen_color').trigger()
@@ -1990,11 +2046,58 @@ class Vectrize(DockWidget):
         else:
             pass
 
+    
+    def apply_preset(self):
+            global d_opt
+            preset_name = self.preset_combo.currentText()
+            #print(f"DEBUG: ltres current text is {d_opt.ltres.text()}") 
+            #print(f"DEBUG: d_opt['ltres'] type is {type(d_opt['ltres'])}")
+
+            gen = ImageToSVGConverter()
+            # Use checkoptions(),and perfect dictionary by filling with default data if the info is lack.
+            new_opts = gen.checkoptions(preset_name)
+
+            #if hasattr(d_opt['ltres'], 'setText'):
+            #    d_opt['ltres'].setText(str(new_opts['ltres']))
+            #else:
+            #    print("ERROR: d_opt['ltres'] is no longer a QLineEdit!")
+
+
+            # Set value to Each UI parts 
+            # QLineEdit (as string)
+            self.d_opt.ltres.setText(str(new_opts['ltres']))
+            self.d_opt.qtres.setText(str(new_opts['qtres']))
+            self.d_opt.pathomit.setText(str(new_opts['pathomit']))
+            self.d_opt.numberofcolors.setText(str(new_opts['numberofcolors']))
+            self.d_opt.mincolorratio.setText(str(new_opts['mincolorratio']))
+            self.d_opt.colorquantcycles.setText(str(new_opts['colorquantcycles']))
+            self.d_opt.strokewidth.setText(str(new_opts['strokewidth']))
+            self.d_opt.scale.setText(str(new_opts['scale']))
+            self.d_opt.roundcoords.setText(str(new_opts['roundcoords']))
+            self.d_opt.blurradius.setText(str(new_opts['blurradius']))
+            self.d_opt.blurdelta.setText(str(new_opts['blurdelta']))
+    
+            # QCheckBox (set bool)
+            self.d_opt.rightangleenhance.setChecked(new_opts['rightangleenhance'])
+            self.d_opt.linefilter.setChecked(new_opts['linefilter'])
+            self.d_opt.lineart.setChecked(new_opts['lineart'])
+    
+            # QComboBox
+            # When the preset values ​​(0, 1, 2...) directly correspond to the index
+            self.d_opt.colorsampling.setCurrentIndex(int(new_opts['colorsampling']))
+            self.d_opt.layering.setCurrentIndex(int(new_opts['layering']))
+            #print(f"DEBUG: ltres updated to {d_opt.ltres.text()}")
+            # d_opt['ltres'].setStyleSheet("background-color: yellow;")
+            # log
+            print(f"Vectrize: Preset '{preset_name}' applied.")
+
+
+
     # called after setup(self)
     def vector_exe(self):
         global opt,opt_keys
         sender = self.sender()
-        # User input parameters -> Priset data, Created and add preset data
+        # User input parameters -> Preset data, Created and add preset data
         m = Dict()
         opt = d_opt
         keys = opt_keys
@@ -2027,7 +2130,7 @@ class Vectrize(DockWidget):
                 continue
 
             if (k == 'lineart') or (k == 'rightangleenhance') or (k == 'linefilter'): # raw bool This from Qcheckbox
-                optdata = (opt[k].checkState() == QtCore.Qt.Checked)
+                optdata = (opt[k].checkState() == QC.CheckState.Checked)#Qt 5/6
                 m['krita_set'][k] = optdata
                 continue
 
@@ -2087,7 +2190,7 @@ class Vectrize(DockWidget):
         gen.continuous_draw = chkb_cond.isChecked()
         gen.warning_skip = chkb_ext3.isChecked()
         # gen.gray_mode = chkb_ext4.isChecked()
-        
+        gen.ignore_black = chkb_ext5.isChecked()
         w = currentDoc.width();h = currentDoc.height();
         if gen.warning_skip == False and (w > 756 or h > 756):
             ans = message_yn(f'Image size({w}px*{h}px) is too large,\n Long time (60sec or more) left if convert whole image probably.\n Do you want to cancel? ')
@@ -2107,9 +2210,10 @@ class Vectrize(DockWidget):
 def message(mes):
     mb = QMessageBox()
     mb.setText(str(mes))
-    mb.setStandardButtons(QMessageBox.Ok)
-    ret = mb.exec()
-    if ret == QMessageBox.Ok:
+ 
+    mb.setStandardButtons(QC.StdBtn.Ok)
+    ret = qt_exec(mb)
+    if ret == QC.StdBtn.Ok:
         pass # OK clicked
 
 
@@ -2117,10 +2221,11 @@ def message_yn(mes):
     mb = QMessageBox()
     mb.setText(str(mes))
     mb.setWindowTitle('Warning!')
-    mb.setStandardButtons(QMessageBox.Ok|QMessageBox.Cancel)
-    ret = mb.exec()
-    if ret == QMessageBox.Ok:
+    mb.setStandardButtons(QC.StdBtn.Ok | QC.StdBtn.Cancel)
+    ret = qt_exec(mb)
+    
+    if ret == QC.StdBtn.Ok:
         return True # OK clicked
-    if ret == QMessageBox.Cancel:
+    if ret == QC.StdBtn.Cancel:
         return False # Cancel clicked
 
