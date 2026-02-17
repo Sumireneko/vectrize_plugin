@@ -1,5 +1,5 @@
 # Vectrize plugin for Krita  
-ver 0.5   
+ver 0.6  
 This is an experimental plugin works on Krita,  
 It can that tracing as  svg path on selected area or full image.  
 Not need Node.js and Runtime etc.  
@@ -11,17 +11,28 @@ It can change the stroke and fill colors more easily than the Krita default meth
 Python Porting from Imagetracer.js 1.2.6  
 https://github.com/jankovicsandras/imagetracerjs  
 
-# How to install
-v0.5 :Recommend to use Krita v5.2.14 later  
-v0.48:Recommend to use Krita v5.2.2 later  
+# Version compatibility
+v0.6  — Krita v5.2.14,v5.3.0 and v6.0.0 Later  
+v0.5  — Krita v5.2.14 later  
+v0.48 — Krita v5.2.2 later  
 https://krita.org/en/
+
+# How to install
 
 **Important!**    
 This plug-in need addict v2.4.0 library(Python)  
 https://github.com/mewwts/addict  
 Please Install this into pykrita directry too
-
 Thanks to each libraries and application authors!  
+```
+pykrita/
+    addict/ <----Install manually by copying the files
+    vectrize/<----Install via Krita’s built‑in plugin installer (Select zip file)
+      :
+    (other plugin directories)
+      :
+```
+
 
 # Features
 * Trace as filled color area and Line Art 
@@ -30,6 +41,12 @@ Thanks to each libraries and application authors!
 * Lasso draw mode(use FreeHand Selection),(Fillcolor as Forground Color and Bordercolor as Background color )
 
 # Update History
+v0.6 - 2026/02/17
+* Krita 5.3 and 6 compatible (PyQt5 / PyQt6 supported)  
+* Added a compatibility layer for PyQt5 and PyQt6 (qt_compat.py).  
+* This layer handles various API changes, including the transition from exec_() to exec(),   
+* updated enum types, event handling differences, and changes in the UI file loader.  
+
 v0.5 - 2025/10/19  
 * Tested with Krita v5.2.14(PyQt5 and Python 3.13)  
 * Preliminary PyQt6 compatibility added Updated import logic to support PyQt6 for future Krita 6.x compatibility.  
